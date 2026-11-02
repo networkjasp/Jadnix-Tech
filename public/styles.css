@@ -306,3 +306,33 @@ tbody tr:last-child td { border-bottom: 0; }
 
 /* Footer © (also the hidden admin trigger) */
 .copy-mark { cursor: default; user-select: none; -webkit-user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+/* Service card links (internal links for SEO) */
+.svc-link { color: #fff; }
+.svc-link::after { content: " →"; color: var(--cyan); opacity: 0; transition: opacity .2s; }
+.svc:hover .svc-link::after { opacity: 1; }
+.svc { position: relative; }
+.svc-link::before { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+
+/* ═════════ SERVICE PAGES ═════════ */
+.sub-hero { position: relative; padding: 150px 0 40px; overflow: hidden; }
+.sub-hero::before { content: ""; position: absolute; inset: -20% -10% auto auto; width: 70vw; height: 70vw; max-width: 900px; max-height: 900px;
+  background: radial-gradient(circle, rgba(47,107,255,.22), rgba(0,229,255,.06) 40%, transparent 70%); pointer-events: none; }
+.sub-hero .wrap { position: relative; }
+.crumbs { font-size: .85rem; color: var(--text-3); margin-bottom: 22px; }
+.crumbs a { color: var(--text-2); } .crumbs a:hover { color: #fff; }
+h1.display.sub-h1 { font-size: clamp(2.2rem, 5.4vw, 4.2rem); text-align: left; margin-bottom: 22px; }
+.sub-hero .lead-left { max-width: 720px; margin-bottom: 0; }
+.cta-row.left { justify-content: flex-start; }
+.cta-band .cta-panel { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; padding: clamp(24px, 4vw, 44px); margin-bottom: 70px;
+  background: radial-gradient(ellipse at 100% 0%, rgba(0,229,255,.12), transparent 60%), linear-gradient(180deg, var(--panel-2), var(--panel)); }
+.cta-panel .lead-left { margin: 0; max-width: 560px; }
+.cta-panel .cta-row { margin-top: 0; }
+.h3-like { font-size: 1.5rem; margin-bottom: 16px; }
+.others .other { display: flex; flex-direction: column; gap: 8px; }
+.others .other h3 { margin: 0; }
+.other-go { color: var(--cyan); font-size: .88rem; margin-top: auto; }
+.link-list { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 40px; }
+.link-list a { display: inline-block; padding: 8px 14px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text-2); font-size: .9rem; }
+.link-list a:hover { color: #fff; border-color: var(--cyan); }
+.note a { color: var(--cyan); }

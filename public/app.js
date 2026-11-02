@@ -28,7 +28,9 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
   document.addEventListener('keydown', e => { if (e.key === 'Escape') setOpen(false); });
   document.addEventListener('click', e => { if (!nav.contains(e.target)) setOpen(false); });
 
-  const map = new Map([...links.querySelectorAll('a')].map(a => [a.getAttribute('href').slice(1), a]));
+  const map = new Map([...links.querySelectorAll('a')]
+    .filter(a => new URL(a.href).pathname === location.pathname && new URL(a.href).hash)
+    .map(a => [new URL(a.href).hash.slice(1), a]));
   const spy = new IntersectionObserver(entries => {
     entries.forEach(en => {
       if (!en.isIntersecting) return;
@@ -90,7 +92,8 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
   });
 })();
 
-document.getElementById('year').textContent = String(new Date().getFullYear());
+const yearEl = document.getElementById('year');
+if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 
 /* ═══════════════════════════════════════════════
    PORTFOLIO — loaded from /api/portfolio (Netlify
@@ -147,6 +150,7 @@ function workCard(item) {
 async function loadPortfolio() {
   const grid = document.getElementById('portfolio-grid');
   const empty = document.getElementById('portfolio-empty');
+  if (!grid || !empty) return;
   try {
     const res = await fetch('/api/portfolio', { cache: 'no-cache' });
     if (!res.ok) throw new Error(res.status);
@@ -173,10 +177,10 @@ window.addEventListener('jadnix:portfolio-updated', loadPortfolio);
     if (loading) return;
     loading = true;
     const css = document.createElement('link');
-    css.rel = 'stylesheet'; css.href = 'admin.css';
+    css.rel = 'stylesheet'; css.href = '/admin.css';
     document.head.append(css);
     const s = document.createElement('script');
-    s.src = 'admin.js'; s.defer = true;
+    s.src = '/admin.js'; s.defer = true;
     s.onload = () => { loading = false; window.JadnixAdmin && window.JadnixAdmin.open(); };
     s.onerror = () => { loading = false; };
     document.body.append(s);
