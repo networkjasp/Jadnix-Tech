@@ -152,7 +152,7 @@ export const DEFAULT_ITEMS = [{
   category: "Web",
   year: "2026",
   description: "This site: a fast, mobile-first studio website with security headers, a spam-protected contact form and a secure portfolio manager.",
-  url: "https://jadnix-tech.netlify.app/",
+  url: "https://www.jadnixtech.co.za/",
   imageId: null,
   visible: true,
 }];
