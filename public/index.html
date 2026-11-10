@@ -122,8 +122,8 @@
   </div>
   <div class="marquee" aria-label="Tools and platforms I work with">
     <div class="marquee-track">
-      <span>React</span><span>Next.js</span><span>Node.js</span><span>PostgreSQL</span><span>Zoho CRM</span><span>HubSpot</span><span>PayFast</span><span>Yoco</span><span>Paystack</span><span>WhatsApp</span><span>Google Workspace</span><span>Netlify</span>
-      <span aria-hidden="true">React</span><span aria-hidden="true">Next.js</span><span aria-hidden="true">Node.js</span><span aria-hidden="true">PostgreSQL</span><span aria-hidden="true">Zoho CRM</span><span aria-hidden="true">HubSpot</span><span aria-hidden="true">PayFast</span><span aria-hidden="true">Yoco</span><span aria-hidden="true">Paystack</span><span aria-hidden="true">WhatsApp</span><span aria-hidden="true">Google Workspace</span><span aria-hidden="true">Netlify</span>
+      <span>React</span><span>Next.js</span><span>Node.js</span><span>PostgreSQL</span><span>Zoho CRM</span><span>HubSpot</span><span>PayFast</span><span>Yoco</span><span>Paystack</span><span>WhatsApp</span><span>Google Workspace</span><span>Cloudflare</span>
+      <span aria-hidden="true">React</span><span aria-hidden="true">Next.js</span><span aria-hidden="true">Node.js</span><span aria-hidden="true">PostgreSQL</span><span aria-hidden="true">Zoho CRM</span><span aria-hidden="true">HubSpot</span><span aria-hidden="true">PayFast</span><span aria-hidden="true">Yoco</span><span aria-hidden="true">Paystack</span><span aria-hidden="true">WhatsApp</span><span aria-hidden="true">Google Workspace</span><span aria-hidden="true">Cloudflare</span>
     </div>
   </div>
 </section>
@@ -400,8 +400,8 @@
         <p class="sub">I reply within one business day.</p>
       </div>
 
-      <form class="panel form reveal" id="contact-form" name="contact" method="POST" action="/thanks.html" data-netlify="true" netlify-honeypot="company_website">
-        <input type="hidden" name="form-name" value="contact">
+      <form class="panel form reveal" id="contact-form" name="contact" method="POST" action="/api/contact">
+        <input type="hidden" name="started" value="">
         <p class="hp"><label>Leave this empty <input name="company_website" tabindex="-1" autocomplete="off"></label></p>
         <div class="fld"><label for="f-name">Your name</label><input id="f-name" type="text" name="name" autocomplete="name" maxlength="100" required></div>
         <div class="fld"><label for="f-email">Email address</label><input id="f-email" type="email" name="email" autocomplete="email" maxlength="200" required></div>

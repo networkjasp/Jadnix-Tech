@@ -1,9 +1,12 @@
 # Jadnix Tech website
 
-Live site: https://www.jadnixtech.co.za
+Live site: https://www.jadnixtech.co.za — hosted on **Cloudflare Pages**, deployed automatically from GitHub.
 
-Static site (`public/`) + Netlify Functions (`netlify/functions/`) + Netlify Blobs for portfolio data,
-uploaded images and admin security data. **No environment variables or external services need to be set up.**
+- `public/` — the website (static HTML/CSS/JS). Cloudflare's **build output directory**.
+- `functions/` — server code (Cloudflare Pages Functions): portfolio, images, contact form, admin login.
+- `lib/` — shared server code: security, password hashing, built-in login.
+- Data (portfolio, images, enquiries, login security) lives in one **Workers KV** namespace bound as `JADNIX_KV`.
+- No npm packages, no build step, no third-party services required.
 
 ## Structure
 
@@ -12,52 +15,69 @@ public/
   index.html                 homepage (contact form, portfolio, pricing)
   web-design/ website-redesign/ custom-software/ crm-development/ website-maintenance/   service pages
   privacy/ terms/            Privacy policy (POPIA) and Terms & conditions
-  404.html  thanks.html      not-found page and form success page
+  404.html  thanks.html      not-found page and form success page (/thanks)
   styles.css  app.js         site styles + script (cookie notice, form validation, portfolio)
-  admin.js  admin.css        portfolio manager (loaded only when opened)
-  fonts/                     self-hosted fonts (OFL licence)
-  og/                        social preview images (1200×630)
-  favicon.ico favicon.png apple-touch-icon.png icon-192.png icon-512.png site.webmanifest
-  sitemap.xml  robots.txt  _headers (security + caching headers)
-netlify/
-  functions/                 API: login, portfolio, images
-  lib/credentials.mjs        built-in admin login (password HASH only)
-  lib/security.mjs           sessions, rate limiting, validation
-  lib/password.mjs           scrypt password hashing
-scripts/setup-admin.mjs      makes a new hash for credentials.mjs (optional)
-netlify.toml                 build settings + redirects to https://www.jadnixtech.co.za
+  admin.js  admin.css        portfolio manager + enquiries inbox (loaded only when opened)
+  fonts/  og/                self-hosted fonts, social preview images
+  _headers                   security + caching headers (static files)
+  _routes.json               which paths run the middleware (static assets skip it)
+  sitemap.xml  robots.txt  favicon.ico  site.webmanifest …
+functions/
+  _middleware.js             jadnixtech.co.za → https://www.jadnixtech.co.za, noindex on *.pages.dev
+  api/portfolio.js           GET  public portfolio
+  api/image/[id].js          GET  uploaded screenshots
+  api/contact.js             POST contact form (validation, honeypot, time trap, rate limit)
+  api/admin/*.js             login, logout, session, password, portfolio, enquiries
+lib/
+  credentials.js             built-in admin login (password HASH only)
+  password.js                PBKDF2-SHA256 hashing (Web Crypto)
+  security.js                sessions, rate limiting, validation, storage helpers
+scripts/setup-admin.mjs      makes a new hash for credentials.js (optional)
 ```
 
-## Deploy
+## Cloudflare Pages settings
 
-Push to GitHub — Netlify builds and publishes automatically. In Netlify → Domain management,
-`www.jadnixtech.co.za` should be the **primary domain**.
+| Setting | Value |
+|---|---|
+| Framework preset | None |
+| Build command | *(leave empty)* |
+| Build output directory | `public` |
+| Root directory | *(leave empty)* |
+| Binding | KV namespace → variable name **`JADNIX_KV`** (Production **and** Preview) |
 
-## Portfolio manager
+Also turn on **SSL/TLS → Edge Certificates → Always Use HTTPS** for the domain.
 
-1. Click the `©` in the footer **five times**.
-2. Sign in with the built-in login.
-3. **Change the password straight away** (yellow banner → *Change password*). The new password is stored hashed
-   in Netlify Blobs and replaces the built-in one, and every other session is signed out.
+## Portfolio manager & enquiries
 
-Forgot the changed password? Netlify → your site → **Blobs** → store `jx-auth` → delete the `credentials` entry.
-The login falls back to the built-in password in `netlify/lib/credentials.mjs`.
+1. Click the `©` in the footer **five times**, then sign in.
+2. **Change the password straight away** (yellow banner → *Change password*). The new password is stored hashed in KV
+   and replaces the built-in one; other sessions are signed out.
+3. **Enquiries** (top bar) shows contact-form messages, newest first, with *Reply by email* / *WhatsApp* buttons.
+   Enquiries are deleted automatically after 12 months.
 
-### Security
+Forgot the changed password? Cloudflare → **Storage & databases → Workers KV** → your namespace → delete the key
+`auth:credentials`. The login falls back to the built-in password in `lib/credentials.js`.
 
-- Password stored only as a **scrypt** hash, never in plain text, never in the browser.
-- Session signing key generated automatically on first use and kept server-side (Netlify Blobs).
-- Signed **HttpOnly, Secure, SameSite=Strict** cookie, 8-hour sessions.
-- **Rate limiting:** 5 wrong passwords → that IP is locked out for 30 min; 40 site-wide per hour → logins paused.
-- Password policy on change: 12+ characters mixing 3 character types (or 16+ characters).
-- CSRF protection (Origin check + custom header), strict Content-Security-Policy, uploads checked byte-by-byte.
+### Optional: email me when someone fills in the form
 
-## Contact form
+Create a free account at resend.com, make an API key, then in Cloudflare → your Pages project → **Settings →
+Variables and secrets** add:
+- `RESEND_API_KEY` (type **Secret**) — the key
+- `NOTIFY_EMAIL` — the email address you signed up to Resend with
 
-Netlify Forms with: inline validation, honeypot field, time trap (blocks bot-speed submissions), POPIA consent
-checkbox, double-submit protection, and Netlify's built-in spam filter. Set email notifications in
-Netlify → Forms → Form notifications.
+Redeploy. Without these, enquiries are still saved and shown in the portal.
 
-## Regenerating pages
+## Security
 
-Service, legal and 404 pages were generated from one template; edit the HTML files directly for small text changes.
+- Password stored only as a PBKDF2-SHA256 hash (100,000 iterations, random salt), never in the browser.
+- Session key generated automatically and kept in KV; signed HttpOnly, Secure, SameSite=Strict cookie (8 h).
+- Rate limiting: 5 wrong passwords → that visitor locked out 30 min; 40 site-wide per hour → logins paused.
+  Contact form: 5 messages per visitor per hour.
+- CSRF protection, strict Content-Security-Policy, uploads checked byte-by-byte, all output rendered as text.
+
+## Run locally (optional)
+
+```bash
+npx wrangler pages dev public --kv JADNIX_KV
+# http://localhost:8788
+```

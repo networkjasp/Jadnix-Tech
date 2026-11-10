@@ -111,11 +111,14 @@
     const listMsg = h('p', { class: 'adm-msg' });
     const count = h('span', { class: 'mono' });
 
+    const enqBtn = h('button', { class: 'btn btn-ghost sm', type: 'button', text: 'Enquiries', onclick: () => renderEnquiries() });
+    api('/api/admin/enquiries').then(d => { if (d.total) enqBtn.textContent = `Enquiries (${d.total})`; }).catch(() => {});
     const header = h('header', { class: 'adm-head' },
       h('div', {}, h('p', { class: 'mono', text: 'JADNIX TECH · ADMIN' }), h('h2', { text: 'Portfolio manager' })),
       h('div', { class: 'adm-head-actions' },
         h('span', { class: 'adm-user' }, h('span', { class: 'dot' }), ` ${user}`),
         h('a', { class: 'btn btn-ghost sm', href: '/#work', target: '_self', text: 'View site', onclick: () => dlg.close() }),
+        enqBtn,
         h('button', { class: 'btn btn-ghost sm', type: 'button', text: 'Change password', onclick: () => renderPassword() }),
         h('button', { class: 'btn btn-ghost sm', type: 'button', text: 'Log out', onclick: logout }),
         h('button', { class: 'adm-x', type: 'button', 'aria-label': 'Close', text: '✕', onclick: () => dlg.close() })));
@@ -276,6 +279,51 @@
     return api_;
   }
 
+  /* ── Enquiries (contact form inbox) ── */
+  async function renderEnquiries() {
+    const msg = h('p', { class: 'adm-msg', 'aria-live': 'polite' });
+    const list = h('div', { class: 'adm-enq-list' });
+    const count = h('span', { class: 'mono' });
+    view.replaceChildren(
+      h('header', { class: 'adm-head' },
+        h('div', {}, h('p', { class: 'mono', text: 'JADNIX TECH · ADMIN' }), h('h2', { text: 'Enquiries' })),
+        h('div', { class: 'adm-head-actions' },
+          h('button', { class: 'btn btn-ghost sm', type: 'button', text: '← Portfolio', onclick: () => renderManager() }),
+          h('button', { class: 'adm-x', type: 'button', 'aria-label': 'Close', text: '✕', onclick: () => dlg.close() }))),
+      h('section', { class: 'adm-panel adm-enq' },
+        h('div', { class: 'adm-panel-head' }, h('h3', { text: 'Messages from the contact form' }), count),
+        h('p', { class: 'sub', text: 'Newest first. Enquiries are kept for 12 months, then deleted automatically (see Privacy policy). Reply by email or WhatsApp.' }),
+        msg, list));
+    async function load() {
+      try {
+        const d = await api('/api/admin/enquiries');
+        const items = d.enquiries || [];
+        count.textContent = `${d.total || 0} total`;
+        list.replaceChildren(...(items.length ? items.map(card) : [h('p', { class: 'adm-empty', text: 'No enquiries yet.' })]));
+      } catch (err) { handle(err, msg); }
+    }
+    function card(q) {
+      let armed = false;
+      const when = q.createdAt ? new Date(q.createdAt).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+      const del = h('button', { class: 'adm-btn danger', type: 'button', text: 'Delete', onclick: async () => {
+        if (!armed) { armed = true; del.textContent = 'Confirm delete'; setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 3500); return; }
+        try { await api('/api/admin/enquiries', { method: 'DELETE', json: { id: q.id } }); status(msg, 'Enquiry deleted.', 'ok'); await load(); }
+        catch (err) { handle(err, msg); }
+      } });
+      const wa = q.phone ? 'https://wa.me/' + q.phone.replace(/[^0-9]/g, '').replace(/^0/, '27') : null;
+      return h('article', { class: 'adm-enq-card' },
+        h('div', { class: 'adm-enq-top' },
+          h('div', {}, h('p', { class: 'adm-title', text: q.name }), h('p', { class: 'mono', text: [q.service, when].filter(Boolean).join(' · ') })),
+          h('div', { class: 'adm-actions' },
+            h('a', { class: 'adm-btn', href: `mailto:${q.email}?subject=${encodeURIComponent('Re: your enquiry to Jadnix Tech')}`, text: 'Reply by email' }),
+            wa ? h('a', { class: 'adm-btn', href: wa, target: '_blank', rel: 'noopener noreferrer', text: 'WhatsApp' }) : null,
+            del)),
+        h('p', { class: 'adm-url', text: [q.email, q.phone].filter(Boolean).join(' · ') }),
+        h('p', { class: 'adm-enq-msg', text: q.message }));
+    }
+    await load();
+  }
+
   /* ── Change password ── */
   function renderPassword() {
     const msg = h('p', { class: 'adm-msg', role: 'alert', 'aria-live': 'assertive' });
@@ -333,7 +381,7 @@
     } catch (err) {
       view.replaceChildren(h('div', { class: 'adm-login' },
         h('h2', { text: 'Portal unavailable' }),
-        h('p', { class: 'sub', text: err.status === 404 ? 'The admin API isn’t deployed. It only runs on Netlify (or with “netlify dev”).' : err.message }),
+        h('p', { class: 'sub', text: err.status === 404 ? 'The admin API isn’t running. It runs on Cloudflare Pages (or locally with “npx wrangler pages dev public”).' : err.message }),
         h('button', { class: 'btn btn-ghost full', type: 'button', text: 'Close', onclick: () => dlg.close() })));
     }
   }

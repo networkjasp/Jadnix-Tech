@@ -96,8 +96,8 @@ const yearEl = document.getElementById('year');
 if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 
 /* ═══════════════════════════════════════════════
-   PORTFOLIO — loaded from /api/portfolio (Netlify
-   Function + Blobs), managed in the hidden portal.
+   PORTFOLIO — loaded from /api/portfolio (Cloudflare
+   Pages Function + KV), managed in the hidden portal.
    Everything is rendered with textContent /
    setAttribute, never innerHTML.
 ═══════════════════════════════════════════════ */
@@ -327,16 +327,16 @@ animatedCanvas(document.getElementById('rain'),
 /* ═══════════════════════════════════════════════
    CONTACT FORM — validation + spam protection
    • Clear inline errors (accessible: aria-invalid + messages)
-   • Honeypot field (Netlify drops submissions that fill it)
-   • Time trap: forms sent < 4s after the page loads are bots
-   • Blocks repeat submissions; Netlify's own spam filter
-     (Akismet) also checks every submission server-side.
+   • Honeypot field + time trap (checked again on the server)
+   • Sent to /api/contact, which validates everything again,
+     rate-limits per visitor and stores the enquiry.
 ═══════════════════════════════════════════════ */
 (function contactForm() {
   const form = document.getElementById('contact-form');
   if (!form) return;
   form.noValidate = true;                       // use our clear messages instead of browser pop-ups
   const loadedAt = Date.now();
+  if (form.elements.started) form.elements.started.value = String(loadedAt);
   const status = document.getElementById('form-status');
   const rules = {
     name:    v => v.trim().length >= 2 && v.trim().length <= 100 ? '' : 'Please enter your name.',
@@ -374,10 +374,25 @@ animatedCanvas(document.getElementById('rain'),
     if (firstBad) { e.preventDefault(); status.textContent = 'Please fix the highlighted fields.'; firstBad.focus(); return; }
     if (form.elements.company_website && form.elements.company_website.value) { e.preventDefault(); return; }   // bot
     if (Date.now() - loadedAt < 4000) { e.preventDefault(); status.textContent = 'That was quick! Please check your details and press send again.'; return; }
-    if (sending) { e.preventDefault(); return; }
+    e.preventDefault();
+    if (sending) return;
     sending = true;
     status.textContent = '';
     const btn = form.querySelector('button[type="submit"]');
+    const label = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } })
+      .then(async res => {
+        let data = {};
+        try { data = await res.json(); } catch {}
+        if (res.ok && data.ok) { window.location.href = '/thanks'; return; }
+        if (data.fields) Object.entries(data.fields).forEach(([name, msg]) => { const el = form.elements[name]; if (el) setError(el, msg); });
+        throw new Error(data.error || 'Your message could not be sent.');
+      })
+      .catch(err => {
+        status.textContent = (err && err.message ? err.message : 'Your message could not be sent.') + ' You can also WhatsApp 064 496 3276.';
+        sending = false;
+        if (btn) { btn.disabled = false; btn.textContent = label; }
+      });
   });
 })();

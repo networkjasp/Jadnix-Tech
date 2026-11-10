@@ -1,4 +1,5 @@
-# Netlify security headers — applied to every page
+# Cloudflare Pages security headers — applied to every static page
+# (API responses set their own headers in lib/security.js)
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
@@ -19,5 +20,5 @@
   X-Robots-Tag: noindex
 /admin.css
   X-Robots-Tag: noindex
-/thanks.html
+/thanks
   X-Robots-Tag: noindex

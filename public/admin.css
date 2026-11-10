@@ -83,3 +83,11 @@
 .adm-warn .adm-btn { color: #ffd666; border-color: rgba(255,196,0,.45); }
 .adm-login .fld .sub { margin-top: 6px; font-size: .8rem; }
 .adm-login { overflow-y: auto; }
+
+/* Enquiries inbox */
+.adm-enq { flex: 1; min-height: 0; overflow-y: auto; }
+.adm-enq-list { display: grid; gap: 10px; max-width: 980px; }
+.adm-enq-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); }
+.adm-enq-top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.adm-enq-msg { margin-top: 10px; color: var(--text-2); white-space: pre-wrap; line-height: 1.6; font-size: .92rem; }
+a.adm-btn { display: inline-block; text-decoration: none; }
