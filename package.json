@@ -1,0 +1,11 @@
+{
+  "name": "jadnix-tech-website",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Jadnix Tech website on Cloudflare Pages (static site + Pages Functions + Workers KV).",
+  "type": "module",
+  "scripts": {
+    "dev": "npx wrangler pages dev public --kv JADNIX_KV",
+    "setup-admin": "node scripts/setup-admin.mjs"
+  }
+}
