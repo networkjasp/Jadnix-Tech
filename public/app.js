@@ -125,7 +125,7 @@ function workCard(item) {
   // Only same-origin images are allowed by the CSP; host screenshots in /images.
   if (img && new URL(img).origin === window.location.origin) {
     const i = el('img');
-    i.src = img; i.alt = String(item.title || 'Project screenshot'); i.loading = 'lazy'; i.decoding = 'async';
+    i.src = img; i.alt = `Screenshot of ${String(item.title || 'project')}`; i.width = 800; i.height = 500; i.loading = 'lazy'; i.decoding = 'async';
     thumb.append(i);
   } else {
     const b = el('div', 'browser');
@@ -218,12 +218,14 @@ function animatedCanvas(canvas, setup, step) {
   let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => { resize(); }, 150); });
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; visible ? start() : stop(); }).observe(canvas);
   document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
-  start();
+  // Wait until the page has loaded and the browser is idle, so the animation never slows the first paint.
+  const kick = () => (window.requestIdleCallback ? requestIdleCallback(start, { timeout: 1500 }) : setTimeout(start, 300));
+  if (document.readyState === 'complete') kick(); else window.addEventListener('load', kick, { once: true });
 }
 
 animatedCanvas(document.getElementById('vortex'),
   (ctx, W, H) => {
-    const n = W < 700 ? 520 : 1400;
+    const n = W < 700 ? 320 : 1200;
     const cx = W / 2, cy = H * 0.5;
     const span = H * 0.62;
     const rMin = Math.min(W, H) * 0.05, rMax = Math.max(W * 0.42, 340);
@@ -282,3 +284,100 @@ animatedCanvas(document.getElementById('rain'),
     }
   }
 );
+
+/* ═══════════════════════════════════════════════
+   COOKIE NOTICE — the site only uses essential storage.
+   The visitor's choice is saved so optional tools (e.g.
+   analytics added later) can check it before loading:
+   if (window.jadnixConsent.analytics()) { ... }
+═══════════════════════════════════════════════ */
+(function cookieNotice() {
+  const KEY = 'jx_cookie_consent';
+  const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { return null; } };
+  const save = choice => { try { localStorage.setItem(KEY, JSON.stringify({ choice, date: new Date().toISOString(), v: 1 })); } catch {} };
+  window.jadnixConsent = Object.freeze({ analytics: () => (read() || {}).choice === 'accepted' });
+
+  let box = null;
+  function close() { if (box) { box.remove(); box = null; } }
+  function choose(choice) { save(choice); close(); window.dispatchEvent(new CustomEvent('jadnix:consent', { detail: choice })); }
+  function show() {
+    if (box) return;
+    box = document.createElement('section');
+    box.className = 'cookie';
+    box.setAttribute('role', 'region');
+    box.setAttribute('aria-label', 'Cookie notice');
+    const p = document.createElement('p');
+    p.append('This site only uses essential cookies and storage to work — no tracking or advertising. Optional analytics will only ever run if you accept. ');
+    const a = document.createElement('a'); a.href = '/privacy/#cookies'; a.textContent = 'Privacy policy';
+    p.append(a);
+    const row = document.createElement('div'); row.className = 'cookie-actions';
+    const yes = document.createElement('button'); yes.type = 'button'; yes.className = 'btn btn-solid'; yes.textContent = 'Accept';
+    const no = document.createElement('button'); no.type = 'button'; no.className = 'btn btn-ghost'; no.textContent = 'Decline';
+    yes.addEventListener('click', () => choose('accepted'));
+    no.addEventListener('click', () => choose('declined'));
+    row.append(yes, no);
+    box.append(p, row);
+    document.body.append(box);
+  }
+  if (!read()) show();
+  const settings = document.getElementById('cookie-settings');
+  if (settings) settings.addEventListener('click', show);
+})();
+
+/* ═══════════════════════════════════════════════
+   CONTACT FORM — validation + spam protection
+   • Clear inline errors (accessible: aria-invalid + messages)
+   • Honeypot field (Netlify drops submissions that fill it)
+   • Time trap: forms sent < 4s after the page loads are bots
+   • Blocks repeat submissions; Netlify's own spam filter
+     (Akismet) also checks every submission server-side.
+═══════════════════════════════════════════════ */
+(function contactForm() {
+  const form = document.getElementById('contact-form');
+  if (!form) return;
+  form.noValidate = true;                       // use our clear messages instead of browser pop-ups
+  const loadedAt = Date.now();
+  const status = document.getElementById('form-status');
+  const rules = {
+    name:    v => v.trim().length >= 2 && v.trim().length <= 100 ? '' : 'Please enter your name.',
+    email:   v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? '' : 'Please enter a valid email address, e.g. name@company.co.za.',
+    phone:   v => !v.trim() || /^\+?[0-9 ()-]{7,20}$/.test(v.trim()) ? '' : 'Please enter a valid phone number, or leave it empty.',
+    message: v => v.trim().length >= 10 ? '' : 'Please tell me a little about your project (at least 10 characters).',
+    consent: (v, el) => el.checked ? '' : 'Please tick the box so I can reply to you.',
+  };
+  function setError(el, msg) {
+    const fld = el.closest('.fld');
+    let err = fld.querySelector('.fld-error');
+    if (!err) {
+      err = document.createElement('p'); err.className = 'fld-error'; err.id = el.id + '-err';
+      fld.append(err);
+    }
+    err.textContent = msg;
+    err.hidden = !msg;
+    el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    if (msg) el.setAttribute('aria-describedby', err.id); else el.removeAttribute('aria-describedby');
+    return !msg;
+  }
+  function check(el) { const rule = rules[el.name]; return rule ? setError(el, rule(el.value, el)) : true; }
+  Object.keys(rules).forEach(name => {
+    const el = form.elements[name];
+    if (!el) return;
+    el.addEventListener('blur', () => { if (el.value || el.type === 'checkbox') check(el); });
+    el.addEventListener('input', () => { if (el.getAttribute('aria-invalid') === 'true') check(el); });
+    el.addEventListener('change', () => { if (el.type === 'checkbox') check(el); });
+  });
+  let sending = false;
+  form.addEventListener('submit', e => {
+    const fields = Object.keys(rules).map(n => form.elements[n]).filter(Boolean);
+    const results = fields.map(el => [el, check(el)]);           // check every field so all errors show at once
+    const firstBad = (results.find(([, good]) => !good) || [])[0];
+    if (firstBad) { e.preventDefault(); status.textContent = 'Please fix the highlighted fields.'; firstBad.focus(); return; }
+    if (form.elements.company_website && form.elements.company_website.value) { e.preventDefault(); return; }   // bot
+    if (Date.now() - loadedAt < 4000) { e.preventDefault(); status.textContent = 'That was quick! Please check your details and press send again.'; return; }
+    if (sending) { e.preventDefault(); return; }
+    sending = true;
+    status.textContent = '';
+    const btn = form.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  });
+})();

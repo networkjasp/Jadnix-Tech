@@ -77,3 +77,9 @@
   .adm-thumb { width: 84px; }
   .adm-actions { grid-column: 1 / -1; justify-content: flex-start; max-width: none; }
 }
+
+/* Built-in password warning + password form helpers */
+.adm-warn { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 24px; background: rgba(255,196,0,.08); border-bottom: 1px solid rgba(255,196,0,.3); color: #ffd666; font-size: .9rem; }
+.adm-warn .adm-btn { color: #ffd666; border-color: rgba(255,196,0,.45); }
+.adm-login .fld .sub { margin-top: 6px; font-size: .8rem; }
+.adm-login { overflow-y: auto; }

@@ -24,7 +24,7 @@ async function dropImage(id) { if (id) { try { await imageStore().delete(id); } 
 const all = items => json({ projects: items.map(publicItem) });
 
 export default async req => {
-  const denied = requireAdmin(req);
+  const denied = await requireAdmin(req);
   if (denied) return denied;
 
   const items = await loadItems();

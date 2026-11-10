@@ -1,83 +1,63 @@
 # Jadnix Tech website
 
-The Jadnix Tech studio site, with a hidden, server-secured **portfolio manager**.
+Live site: https://www.jadnixtech.co.za
 
-- Static site in `public/` (HTML/CSS/JS, no build step)
-- Admin API in `netlify/functions/` (Netlify Functions)
-- Portfolio data and uploaded images stored in **Netlify Blobs** (no database to set up)
+Static site (`public/`) + Netlify Functions (`netlify/functions/`) + Netlify Blobs for portfolio data,
+uploaded images and admin security data. **No environment variables or external services need to be set up.**
 
-## Project structure
+## Structure
 
 ```
-public/                 ← what visitors download (publish directory)
-  index.html            site
-  styles.css / app.js   site styles + script
-  admin.js / admin.css  portfolio manager (loaded only when opened)
-  thanks.html           contact-form success page
-  _headers              security headers (CSP, etc.)
-  logo.png / favicon.png / og-image.jpg   brand images
+public/
+  index.html                 homepage (contact form, portfolio, pricing)
+  web-design/ website-redesign/ custom-software/ crm-development/ website-maintenance/   service pages
+  privacy/ terms/            Privacy policy (POPIA) and Terms & conditions
+  404.html  thanks.html      not-found page and form success page
+  styles.css  app.js         site styles + script (cookie notice, form validation, portfolio)
+  admin.js  admin.css        portfolio manager (loaded only when opened)
+  fonts/                     self-hosted fonts (OFL licence)
+  og/                        social preview images (1200×630)
+  favicon.ico favicon.png apple-touch-icon.png icon-192.png icon-512.png site.webmanifest
+  sitemap.xml  robots.txt  _headers (security + caching headers)
 netlify/
-  functions/            serverless API
-    admin-auth.mjs        /api/admin/login · logout · session
-    admin-portfolio.mjs   /api/admin/portfolio (add / edit / hide / reorder / delete)
-    portfolio.mjs         /api/portfolio (public, visible items only)
-    image.mjs             /api/image/:id (uploaded screenshots)
-  lib/                  shared server code (auth, validation, rate limiting)
-scripts/setup-admin.mjs generates the admin environment variables
-netlify.toml            Netlify build settings
+  functions/                 API: login, portfolio, images
+  lib/credentials.mjs        built-in admin login (password HASH only)
+  lib/security.mjs           sessions, rate limiting, validation
+  lib/password.mjs           scrypt password hashing
+scripts/setup-admin.mjs      makes a new hash for credentials.mjs (optional)
+netlify.toml                 build settings + redirects to https://www.jadnixtech.co.za
 ```
 
-## Deploy (GitHub → Netlify)
+## Deploy
 
-1. **Push to GitHub** (new repository → upload this folder, or `git init && git add . && git commit -m "Jadnix site" && git push`).
-2. In Netlify: **Add new site → Import an existing project → GitHub** → pick the repo.
-   The settings are read from `netlify.toml` automatically (publish `public`, functions `netlify/functions`).
-3. **Set the admin environment variables** (Site configuration → Environment variables). Generate them on your computer:
+Push to GitHub — Netlify builds and publishes automatically. In Netlify → Domain management,
+`www.jadnixtech.co.za` should be the **primary domain**.
 
-   ```bash
-   node scripts/setup-admin.mjs <username> "<password>"
-   ```
+## Portfolio manager
 
-   Add the three lines it prints as variables — `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, `SESSION_SECRET` — with scope **Functions**.
-   Then **Deploys → Trigger deploy** so the functions pick them up.
-4. **Turn on forms:** Site configuration → Forms → *Enable form detection*, then redeploy. Set the notification email under Forms → Form notifications.
+1. Click the `©` in the footer **five times**.
+2. Sign in with the built-in login.
+3. **Change the password straight away** (yellow banner → *Change password*). The new password is stored hashed
+   in Netlify Blobs and replaces the built-in one, and every other session is signed out.
 
-> Never commit the generated values or a `.env` file. They live only in Netlify. `.gitignore` already excludes `.env`.
+Forgot the changed password? Netlify → your site → **Blobs** → store `jx-auth` → delete the `credentials` entry.
+The login falls back to the built-in password in `netlify/lib/credentials.mjs`.
 
-## Using the portfolio manager
+### Security
 
-1. Scroll to the footer and **click the `©` five times** (within about two seconds).
-2. Sign in.
-3. Add a project (title, category, year, URL, description, screenshot), or use **↑ ↓ / Edit / Hide / Delete** on existing ones.
-   Changes appear on the live site immediately — no redeploy needed. Images are resized in your browser before upload.
+- Password stored only as a **scrypt** hash, never in plain text, never in the browser.
+- Session signing key generated automatically on first use and kept server-side (Netlify Blobs).
+- Signed **HttpOnly, Secure, SameSite=Strict** cookie, 8-hour sessions.
+- **Rate limiting:** 5 wrong passwords → that IP is locked out for 30 min; 40 site-wide per hour → logins paused.
+- Password policy on change: 12+ characters mixing 3 character types (or 16+ characters).
+- CSRF protection (Origin check + custom header), strict Content-Security-Policy, uploads checked byte-by-byte.
 
-Sessions last 8 hours, or until you click **Log out**.
+## Contact form
 
-### Change the username or password
+Netlify Forms with: inline validation, honeypot field, time trap (blocks bot-speed submissions), POPIA consent
+checkbox, double-submit protection, and Netlify's built-in spam filter. Set email notifications in
+Netlify → Forms → Form notifications.
 
-Run `node scripts/setup-admin.mjs <new-username> "<new-password>"`, replace the three variables in Netlify and redeploy.
-Replacing `SESSION_SECRET` also signs out every existing session.
+## Regenerating pages
 
-## Security model (why the hidden © is not the lock)
-
-The `©` trigger only hides the door; anyone can read front-end code. The real protection is server-side:
-
-- The password is never in the code or the browser — only a **scrypt hash** in a Netlify environment variable.
-- Login sets a signed **HttpOnly, Secure, SameSite=Strict** cookie (JavaScript can't read it).
-- Every admin request is checked on the server; requests from other sites are rejected (Origin check + custom header).
-- **Brute-force protection:** 5 wrong attempts locks that IP for 30 minutes; 40 wrong attempts site-wide in an hour pauses all logins for the rest of that hour.
-- Uploads are checked byte-by-byte to be real JPG/PNG/WEBP files (max 3 MB); URLs must be `http(s)`.
-- All content is rendered with `textContent`, never `innerHTML`, under a strict Content-Security-Policy.
-
-**Use a long password.** A short numeric PIN can still be guessed slowly despite the lockouts. A passphrase of 12+ characters (e.g. three random words and a number) makes guessing impractical.
-
-## Local development (optional)
-
-```bash
-npm install
-npm install -g netlify-cli
-cp .env.example .env      # fill in values from scripts/setup-admin.mjs
-netlify dev               # http://localhost:8888 — functions + local blobs
-```
-
-Opening `public/index.html` directly from disk shows the site, but the portfolio and the admin portal need the functions, so use `netlify dev`.
+Service, legal and 404 pages were generated from one template; edit the HTML files directly for small text changes.

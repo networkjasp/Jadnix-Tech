@@ -116,6 +116,7 @@
       h('div', { class: 'adm-head-actions' },
         h('span', { class: 'adm-user' }, h('span', { class: 'dot' }), ` ${user}`),
         h('a', { class: 'btn btn-ghost sm', href: '/#work', target: '_self', text: 'View site', onclick: () => dlg.close() }),
+        h('button', { class: 'btn btn-ghost sm', type: 'button', text: 'Change password', onclick: () => renderPassword() }),
         h('button', { class: 'btn btn-ghost sm', type: 'button', text: 'Log out', onclick: logout }),
         h('button', { class: 'adm-x', type: 'button', 'aria-label': 'Close', text: '✕', onclick: () => dlg.close() })));
 
@@ -125,7 +126,16 @@
       h('p', { class: 'sub', text: 'Top of the list shows first on the site. Hidden projects stay saved but aren’t shown publicly.' }),
       listMsg, list);
 
-    view.replaceChildren(header, h('div', { class: 'adm-body' }, formPanel.el, listPanel));
+    let warn = null;
+    try {
+      const s = await api('/api/admin/session');
+      if (s.usingBuiltInPassword) {
+        warn = h('div', { class: 'adm-warn', role: 'status' },
+          h('span', { text: 'You’re using the built-in password, which is stored in the website code. Change it now to secure the portal.' }),
+          h('button', { class: 'adm-btn', type: 'button', text: 'Change password', onclick: () => renderPassword() }));
+      }
+    } catch {}
+    view.replaceChildren(header, warn || '', h('div', { class: 'adm-body' }, formPanel.el, listPanel));
 
     async function refresh(data) {
       try {
@@ -144,7 +154,7 @@
         if (editing && editing.id === it.id) formPanel.reset();
       } });
       const thumb = it.image
-        ? h('img', { src: it.image, alt: '', loading: 'lazy' })
+        ? h('img', { src: it.image, alt: `Screenshot of ${it.title}`, loading: 'lazy' })
         : h('span', { class: 'adm-noimg', text: (it.title || '?').slice(0, 1).toUpperCase() });
       return h('article', { class: 'adm-item' + (it.visible ? '' : ' is-hidden') },
         h('div', { class: 'adm-thumb' }, thumb),
@@ -264,6 +274,43 @@
       },
     };
     return api_;
+  }
+
+  /* ── Change password ── */
+  function renderPassword() {
+    const msg = h('p', { class: 'adm-msg', role: 'alert', 'aria-live': 'assertive' });
+    const cur = h('input', { id: 'pw-cur', type: 'password', autocomplete: 'current-password', required: true, maxlength: 200 });
+    const nw = h('input', { id: 'pw-new', type: 'password', autocomplete: 'new-password', required: true, minlength: 12, maxlength: 200, 'aria-describedby': 'pw-rules' });
+    const cf = h('input', { id: 'pw-cf', type: 'password', autocomplete: 'new-password', required: true, maxlength: 200 });
+    const rules = h('p', { id: 'pw-rules', class: 'sub', text: 'At least 12 characters, mixing three of: lowercase, uppercase, numbers, symbols (or 16+ characters). Tip: three random words and a number make a strong, memorable password.' });
+    const btn = h('button', { class: 'btn btn-solid full', type: 'submit', text: 'Save new password' });
+    const form = h('form', { class: 'adm-login', onsubmit: async e => {
+      e.preventDefault();
+      if (nw.value !== cf.value) { status(msg, 'The new passwords don’t match.', 'error'); cf.focus(); return; }
+      if (nw.value.length < 12) { status(msg, 'Use at least 12 characters.', 'error'); nw.focus(); return; }
+      btn.disabled = true; status(msg, 'Saving…');
+      try {
+        await api('/api/admin/password', { method: 'POST', json: { currentPassword: cur.value, newPassword: nw.value } });
+        cur.value = nw.value = cf.value = '';
+        await renderManager();
+        const note = view.querySelector('.adm-body .adm-msg');
+        if (note) status(note, '✓ Password changed. Other signed-in devices have been logged out.', 'ok');
+      } catch (err) {
+        if (err.status === 401 && /log in/i.test(err.message)) { handle(err, msg); return; }
+        status(msg, err.message, 'error');
+      } finally { btn.disabled = false; }
+    } },
+      h('div', { class: 'adm-login-head' },
+        h('p', { class: 'mono', text: 'SECURITY' }),
+        h('h2', { text: 'Change password' }),
+        h('p', { class: 'sub', text: `Signed in as ${user}. The new password is stored hashed on the server and replaces the built-in one.` })),
+      h('div', { class: 'fld' }, h('label', { for: 'pw-cur', text: 'Current password' }), cur),
+      h('div', { class: 'fld' }, h('label', { for: 'pw-new', text: 'New password' }), nw, rules),
+      h('div', { class: 'fld' }, h('label', { for: 'pw-cf', text: 'Confirm new password' }), cf),
+      msg, btn,
+      h('button', { class: 'adm-link', type: 'button', text: 'Back to portfolio', onclick: () => renderManager() }));
+    view.replaceChildren(form);
+    setTimeout(() => cur.focus(), 30);
   }
 
   function handle(err, el) {

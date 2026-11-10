@@ -1,7 +1,8 @@
 // Shared server-side helpers for the Jadnix admin API.
 // Runs only inside Netlify Functions — nothing here is ever sent to the browser.
 import { createHmac, timingSafeEqual, randomBytes, createHash } from "node:crypto";
-import { verifyPassword } from "./password.mjs";
+import { verifyPassword, hashPassword } from "./password.mjs";
+import { DEFAULT_ADMIN } from "./credentials.mjs";
 import { getStore } from "@netlify/blobs";
 
 export const COOKIE = "jx_admin";
@@ -27,13 +28,49 @@ export function json(data, status = 200, extra = {}) {
 }
 export const error = (status, message, extra) => json({ error: message }, status, extra);
 
-/* ── Config (fails closed if anything is missing) ── */
-function config() {
-  const user = process.env.ADMIN_USERNAME;
-  const hash = process.env.ADMIN_PASSWORD_HASH;
-  const secret = process.env.SESSION_SECRET;
-  if (!user || !hash || !secret || secret.length < 32) return null;
-  return { user, hash, secret };
+/* ── Credentials (built in — no Netlify setup needed) ──
+   Order of precedence:
+   1. Password changed in the portal  → stored (hashed) in Netlify Blobs
+   2. Optional environment variables  → ADMIN_USERNAME + ADMIN_PASSWORD_HASH
+   3. Built-in default                 → netlify/lib/credentials.mjs (hash only) */
+function envVar(name) {
+  let v;
+  try { v = globalThis.Netlify?.env?.get(name); } catch {}
+  if (v == null || v === "") v = process.env[name];
+  return typeof v === "string" ? v.trim().replace(/^["']|["']$/g, "").trim() : "";
+}
+async function readJSON(store, key) { try { return (await store.get(key, { type: "json" })) || null; } catch { return null; } }
+
+export async function getCredentials() {
+  const saved = await readJSON(authStore(), "credentials");
+  if (saved && saved.username && saved.passwordHash) return { user: saved.username, hash: saved.passwordHash, source: "portal" };
+  const eu = envVar("ADMIN_USERNAME"), eh = envVar("ADMIN_PASSWORD_HASH");
+  if (eu && eh) return { user: eu, hash: eh, source: "env" };
+  return { user: DEFAULT_ADMIN.username, hash: DEFAULT_ADMIN.passwordHash, source: "built-in" };
+}
+
+/* ── Session signing key: created automatically on first use and kept in Netlify Blobs.
+   (An optional SESSION_SECRET environment variable overrides it.) Cached for 60s. ── */
+let secretCache = { value: null, at: 0 };
+async function sessionSecret() {
+  const env = envVar("SESSION_SECRET");
+  if (env.length >= 32) return env;
+  if (secretCache.value && Date.now() - secretCache.at < 60_000) return secretCache.value;
+  const store = authStore();
+  let s = null;
+  try { s = await store.get("session-secret"); } catch {}
+  if (!s || s.length < 32) {
+    try { await store.set("session-secret", randomBytes(32).toString("hex"), { onlyIfNew: true }); } catch {}
+    try { s = await store.get("session-secret"); } catch {}
+  }
+  if (!s || s.length < 32) throw new Error("Session key unavailable");
+  secretCache = { value: s, at: Date.now() };
+  return s;
+}
+async function rotateSessionSecret() {
+  const s = randomBytes(32).toString("hex");
+  await authStore().set("session-secret", s);
+  secretCache = { value: s, at: Date.now() };
 }
 
 function safeEqualStr(a, b) {
@@ -66,18 +103,19 @@ function readCookie(req, name) {
   }
   return null;
 }
-export function sessionCookie(user) {
-  const cfg = config();
-  const token = sign({ u: user, exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS, n: randomBytes(8).toString("hex") }, cfg.secret);
+export async function sessionCookie(user) {
+  const token = sign({ u: user, exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS, n: randomBytes(8).toString("hex") }, await sessionSecret());
   return `${COOKIE}=${token}; Path=/api; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_SECONDS}`;
 }
 export const clearCookie = () => `${COOKIE}=; Path=/api; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
 
-export function currentUser(req) {
-  const cfg = config();
-  if (!cfg) return null;
-  const s = unsign(readCookie(req, COOKIE), cfg.secret);
-  return s ? s.u : null;
+export async function currentUser(req) {
+  const token = readCookie(req, COOKIE);
+  if (!token) return null;
+  try {
+    const s = unsign(token, await sessionSecret());
+    return s ? s.u : null;
+  } catch { return null; }
 }
 
 /* ── CSRF: state-changing requests must come from this site, via our script ── */
@@ -91,21 +129,18 @@ export function sameOrigin(req) {
 }
 
 /* Guard for every admin endpoint */
-export function requireAdmin(req) {
-  if (!config()) return error(503, "Admin is not configured on the server.");
+export async function requireAdmin(req) {
   if (!sameOrigin(req)) return error(403, "Forbidden.");
-  if (!currentUser(req)) return error(401, "Please log in.");
+  if (!(await currentUser(req))) return error(401, "Please log in.");
   return null;
 }
 
-/* ── Brute-force protection ──
+/* ── Brute-force protection (rate limiting) ──
    Per IP:  5 failed attempts → locked for 30 minutes.
    Global: 40 failed attempts in an hour (from anywhere) → all logins paused until the hour resets. */
 const IP_MAX = 5, IP_LOCK_MS = 30 * 60 * 1000, IP_WINDOW_MS = 30 * 60 * 1000;
 const GLOBAL_MAX = 40, GLOBAL_WINDOW_MS = 60 * 60 * 1000;
 const ipKey = ip => "ip-" + createHash("sha256").update(String(ip || "unknown")).digest("hex").slice(0, 32);
-
-async function readJSON(store, key) { try { return (await store.get(key, { type: "json" })) || null; } catch { return null; } }
 
 export async function loginBlocked(ip) {
   const store = authStore(), now = Date.now();
@@ -129,19 +164,49 @@ async function recordFailure(ip) {
   return Math.max(0, IP_MAX - rec.fails);
 }
 async function clearFailures(ip) { try { await authStore().delete(ipKey(ip)); } catch {} }
+const tooMany = wait => `Too many attempts. Try again in ${wait} minute${wait === 1 ? "" : "s"}.`;
+const slowDown = () => new Promise(r => setTimeout(r, 400 + Math.random() * 400));
 
 export async function checkLogin(ip, username, password) {
-  const cfg = config();
-  if (!cfg) return { ok: false, status: 503, message: "Admin is not configured on the server." };
   const wait = await loginBlocked(ip);
-  if (wait) return { ok: false, status: 429, message: `Too many attempts. Try again in ${wait} minute${wait === 1 ? "" : "s"}.` };
+  if (wait) return { ok: false, status: 429, message: tooMany(wait) };
+  const cred = await getCredentials();
   // Always run the (slow) hash so wrong usernames take as long as wrong passwords.
-  const passOk = verifyPassword(password, cfg.hash);
-  const userOk = safeEqualStr(String(username).trim().toLowerCase(), cfg.user.trim().toLowerCase());
-  if (passOk && userOk) { await clearFailures(ip); return { ok: true, user: cfg.user }; }
+  const passOk = verifyPassword(password, cred.hash);
+  const userOk = safeEqualStr(String(username).trim().toLowerCase(), cred.user.trim().toLowerCase());
+  if (passOk && userOk) { await clearFailures(ip); return { ok: true, user: cred.user }; }
   const left = await recordFailure(ip);
-  await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
-  return { ok: false, status: left ? 401 : 429, message: left ? "Invalid username or password." : "Too many attempts. Try again in 30 minutes." };
+  await slowDown();
+  return { ok: false, status: left ? 401 : 429, message: left ? "Invalid username or password." : tooMany(30) };
+}
+
+/* ── Password policy + change ── */
+export function passwordProblem(pw, username) {
+  if (typeof pw !== "string" || pw.length < 12) return "Use at least 12 characters.";
+  if (pw.length > 200) return "That password is too long (max 200 characters).";
+  const lower = pw.toLowerCase();
+  if (username && lower.includes(String(username).toLowerCase())) return "Don't include your username in the password.";
+  if (/^(.)\1+$/.test(pw) || /(password|qwerty|123456|letmein|admin)/.test(lower)) return "That password is too easy to guess.";
+  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter(r => r.test(pw)).length;
+  if (pw.length < 16 && classes < 3) return "Mix at least three of: lowercase, uppercase, numbers, symbols — or use 16+ characters.";
+  return null;
+}
+export async function changePassword(ip, user, current, next) {
+  const wait = await loginBlocked(ip);
+  if (wait) return { ok: false, status: 429, message: tooMany(wait) };
+  const cred = await getCredentials();
+  if (!verifyPassword(current, cred.hash)) {
+    const left = await recordFailure(ip);
+    await slowDown();
+    return { ok: false, status: left ? 401 : 429, message: left ? "Your current password is incorrect." : tooMany(30) };
+  }
+  const problem = passwordProblem(next, cred.user);
+  if (problem) return { ok: false, status: 400, message: problem };
+  if (verifyPassword(next, cred.hash)) return { ok: false, status: 400, message: "Choose a password you haven't used here before." };
+  await authStore().setJSON("credentials", { username: cred.user, passwordHash: hashPassword(next), changedAt: new Date().toISOString() });
+  await rotateSessionSecret();          // signs out every other session
+  await clearFailures(ip);
+  return { ok: true, user: cred.user };
 }
 
 /* ── Portfolio validation ── */

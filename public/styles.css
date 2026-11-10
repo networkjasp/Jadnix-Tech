@@ -1,3 +1,15 @@
+/* Self-hosted fonts (no third-party requests) — see /fonts/LICENSE.txt */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/inter-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter Tight"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/inter-tight-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter Tight"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/inter-tight-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter Tight"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/inter-tight-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Orbitron"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/orbitron-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Orbitron"; font-style: normal; font-weight: 900; font-display: swap; src: url("/fonts/orbitron-latin-900-normal.woff2") format("woff2"); }
+
 /* ═══════════════════════════════════════════════
    JADNIX TECH — styles
    Layout language adapted from a dark SaaS landing
@@ -11,7 +23,7 @@
   --line-2: rgba(255,255,255,.16);
   --text: #ecedef;
   --text-2: rgba(255,255,255,.66);
-  --text-3: rgba(255,255,255,.42);
+  --text-3: rgba(255,255,255,.62);
   --cyan: #00e5ff;
   --blue: #2f6bff;
   --green: #3ddc97;
@@ -336,3 +348,52 @@ h1.display.sub-h1 { font-size: clamp(2.2rem, 5.4vw, 4.2rem); text-align: left; m
 .link-list a { display: inline-block; padding: 8px 14px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text-2); font-size: .9rem; }
 .link-list a:hover { color: #fff; border-color: var(--cyan); }
 .note a { color: var(--cyan); }
+
+/* ═════════ CTA LINKS, LEGAL PAGES, FORM, COOKIE NOTICE ═════════ */
+.text-link { display: inline-flex; align-items: center; padding: 12px 6px; color: var(--text-2); font-size: .92rem; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(255,255,255,.3); }
+.text-link:hover { color: #fff; text-decoration-color: var(--cyan); }
+.link-btn { padding: 0; font: inherit; color: var(--text-3); font-size: .9rem; cursor: pointer; text-align: left; }
+.link-btn:hover { color: #fff; }
+.foot-grid { grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr; }
+
+.legal-section { padding-top: 20px; }
+.legal-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 56px; align-items: start; }
+.legal-grid > * { min-width: 0; }
+.toc { position: sticky; top: 100px; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; background: var(--panel); }
+.toc ol { list-style: none; margin-top: 10px; display: grid; gap: 6px; counter-reset: toc; }
+.toc a { color: var(--text-2); font-size: .88rem; }
+.toc a:hover { color: #fff; }
+.prose { max-width: 760px; color: var(--text-2); }
+.prose h2 { font-family: var(--display); font-weight: 500; font-size: 1.45rem; color: #fff; margin: 42px 0 12px; scroll-margin-top: 96px; letter-spacing: -.01em; }
+.prose p, .prose li { line-height: 1.75; }
+.prose p { margin-bottom: 14px; }
+.prose ul { padding-left: 20px; margin-bottom: 14px; display: grid; gap: 6px; }
+.prose b { color: #fff; font-weight: 600; }
+.prose a { color: var(--cyan); text-decoration: underline; text-underline-offset: 3px; }
+.prose .lead-left { margin-bottom: 10px; }
+.prose .facts-list { list-style: none; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.prose .table-wrap table { min-width: 520px; }
+
+.fld.check label { display: flex; gap: 10px; align-items: flex-start; color: var(--text-2); font-size: .86rem; line-height: 1.5; cursor: pointer; }
+.fld.check input { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--cyan); }
+.fld.check a { color: var(--cyan); text-decoration: underline; }
+.fld-error { color: #ff8095; font-size: .82rem; margin-top: 6px; }
+.fld [aria-invalid="true"] { border-color: #ff6b81; box-shadow: 0 0 0 3px rgba(255,107,129,.15); }
+.form-status { min-height: 1.2em; color: #ff8095; font-size: .88rem; margin-bottom: 10px; }
+.btn:disabled { opacity: .6; cursor: progress; }
+
+.cookie { position: fixed; left: 16px; bottom: 16px; z-index: 60; width: min(460px, calc(100% - 32px)); padding: 18px 18px 16px;
+  background: #0b0d10; border: 1px solid var(--line-2); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.6); color: var(--text-2); font-size: .9rem; }
+.cookie p { line-height: 1.55; }
+.cookie a { color: var(--cyan); text-decoration: underline; }
+.cookie-actions { display: flex; gap: 8px; margin-top: 14px; }
+.cookie-actions .btn { flex: 1; padding: 10px 14px; }
+
+@media (max-width: 900px) {
+  .legal-grid { grid-template-columns: 1fr; gap: 24px; }
+  .toc { position: static; }
+  .foot-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) { .foot-grid { grid-template-columns: 1fr; } .cookie { bottom: 84px; } }
+
+.crumbs a { text-decoration: underline; text-underline-offset: 3px; }

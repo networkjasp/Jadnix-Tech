@@ -7,3 +7,20 @@
 
 [functions]
   node_bundler = "esbuild"
+
+# ── Force HTTPS + one canonical address ──
+# Netlify serves everything over HTTPS and redirects http:// automatically once the
+# certificate is active. The rules below send the Netlify sub-domain
+# to https://www.jadnixtech.co.za so Google only sees one version of each page.
+# (In Netlify → Domain management, www.jadnixtech.co.za must be the PRIMARY domain.)
+[[redirects]]
+  from = "https://jadnix.netlify.app/*"
+  to = "https://www.jadnixtech.co.za/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://jadnix.netlify.app/*"
+  to = "https://www.jadnixtech.co.za/:splat"
+  status = 301
+  force = true
